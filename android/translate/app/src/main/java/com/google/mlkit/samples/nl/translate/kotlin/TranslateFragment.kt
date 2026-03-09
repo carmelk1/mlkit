@@ -32,6 +32,7 @@ import android.widget.TextView
 import android.widget.ToggleButton
 import androidx.lifecycle.ViewModelProviders
 import com.google.android.material.textfield.TextInputEditText
+import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.samples.nl.translate.R
 
 /***
@@ -74,8 +75,8 @@ class TranslateFragment : Fragment() {
     )
     sourceLangSelector.adapter = adapter
     targetLangSelector.adapter = adapter
-    sourceLangSelector.setSelection(adapter.getPosition(TranslateViewModel.Language("en")))
-    targetLangSelector.setSelection(adapter.getPosition(TranslateViewModel.Language("es")))
+    sourceLangSelector.setSelection(adapter.getPosition(TranslateViewModel.Language(TranslateLanguage.HEBREW)))
+    targetLangSelector.setSelection(adapter.getPosition(TranslateViewModel.Language(TranslateLanguage.ARABIC)))
     sourceLangSelector.onItemSelectedListener = object : OnItemSelectedListener {
       override fun onItemSelected(
         parent: AdapterView<*>?,

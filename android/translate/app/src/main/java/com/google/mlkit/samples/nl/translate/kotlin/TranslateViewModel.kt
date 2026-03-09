@@ -70,8 +70,12 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
   val translatedText = MediatorLiveData<ResultOrError>()
   val availableModels = MutableLiveData<List<String>>()
 
-  // Gets a list of all available translation languages.
-  val availableLanguages: List<Language> = TranslateLanguage.getAllLanguages().map { Language(it) }
+  // Gets a list of only Hebrew, English, and Arabic translation languages.
+  val availableLanguages: List<Language> = listOf(
+    TranslateLanguage.ENGLISH,
+    TranslateLanguage.HEBREW,
+    TranslateLanguage.ARABIC
+  ).map { Language(it) }
 
   init {
     // Create a translation result or error object.
@@ -95,6 +99,11 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
 
     // Update the list of downloaded models.
     fetchDownloadedModels()
+
+    // Pre-download English, Hebrew, and Arabic models
+    downloadLanguage(Language(TranslateLanguage.ENGLISH))
+    downloadLanguage(Language(TranslateLanguage.HEBREW))
+    downloadLanguage(Language(TranslateLanguage.ARABIC))
   }
 
   private fun getModel(languageCode: String): TranslateRemoteModel {
