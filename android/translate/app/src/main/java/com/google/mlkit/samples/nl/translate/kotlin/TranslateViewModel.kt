@@ -17,6 +17,7 @@
 package com.google.mlkit.samples.nl.translate.kotlin
 
 import android.app.Application
+import android.util.Log
 import android.util.LruCache
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MediatorLiveData
@@ -33,6 +34,7 @@ import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
 import com.google.mlkit.samples.nl.translate.R
+import java.io.File
 import java.util.Locale
 
 /**
@@ -41,6 +43,7 @@ import java.util.Locale
 class TranslateViewModel(application: Application) : AndroidViewModel(application) {
 
   companion object {
+    private const val TAG = "TranslateViewModel"
     // This specifies the number of translators instance we want to keep in our LRU cache.
     // Each instance of the translator is built with different options based on the source
     // language and the target language, and since we want to be able to manage the number of
@@ -78,6 +81,9 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
   ).map { Language(it) }
 
   init {
+    // 1. Copy bundled models from assets to internal storage for offline use
+    copyModelsFromAssets()
+
     // Create a translation result or error object.
     val processTranslation =
       OnCompleteListener<String> { task ->
@@ -100,10 +106,65 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
     // Update the list of downloaded models.
     fetchDownloadedModels()
 
-    // Pre-download English, Hebrew, and Arabic models
+    // Trigger normal download logic (will skip if files were copied correctly)
     downloadLanguage(Language(TranslateLanguage.ENGLISH))
     downloadLanguage(Language(TranslateLanguage.HEBREW))
     downloadLanguage(Language(TranslateLanguage.ARABIC))
+  }
+
+  private fun copyModelsFromAssets() {
+    val context = getApplication<Application>()
+    
+    // ML Kit uses different paths depending on the version/config. We will check both.
+    val possiblePaths = listOf(
+        "com.google.mlkit.nl.translate/models",
+        "com.google.mlkit.translate.models"
+    )
+
+    possiblePaths.forEach { relativePath ->
+        val modelDir = File(context.noBackupFilesDir, relativePath)
+        if (!modelDir.exists()) modelDir.mkdirs()
+
+        try {
+            // Get all folders you put in assets/models/
+            val foldersInAssets = context.assets.list("models") ?: return@forEach
+            
+            foldersInAssets.forEach { folderName ->
+                val destFolder = File(modelDir, folderName)
+                if (!destFolder.exists()) {
+                    copyAssetFolder(context, "models/$folderName", destFolder.absolutePath)
+                    Log.d(TAG, "Copied $folderName to $relativePath")
+                } else {
+                    Log.d(TAG, "$folderName already exists in $relativePath")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error copying models from assets to $relativePath", e)
+        }
+    }
+  }
+
+  private fun copyAssetFolder(context: Application, assetPath: String, destPath: String) {
+    val assets = context.assets
+    val files = assets.list(assetPath) ?: return
+    if (files.isEmpty()) return
+
+    File(destPath).mkdirs()
+    for (file in files) {
+      val fullAssetPath = "$assetPath/$file"
+      val fullDestPath = "$destPath/$file"
+      
+      val subFiles = assets.list(fullAssetPath)
+      if (subFiles != null && subFiles.isNotEmpty()) {
+        copyAssetFolder(context, fullAssetPath, fullDestPath)
+      } else {
+        assets.open(fullAssetPath).use { input ->
+          File(fullDestPath).outputStream().use { output ->
+            input.copyTo(output)
+          }
+        }
+      }
+    }
   }
 
   private fun getModel(languageCode: String): TranslateRemoteModel {
