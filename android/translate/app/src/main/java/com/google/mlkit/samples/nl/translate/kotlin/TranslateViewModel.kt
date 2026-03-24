@@ -17,6 +17,7 @@
 package com.google.mlkit.samples.nl.translate.kotlin
 
 import android.app.Application
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import android.util.LruCache
 import androidx.lifecycle.AndroidViewModel
@@ -40,7 +41,7 @@ import java.util.Locale
 /**
  * Model class for tracking available models and performing live translations
  */
-class TranslateViewModel(application: Application) : AndroidViewModel(application) {
+class TranslateViewModel(application: Application) : AndroidViewModel(application), TextToSpeech.OnInitListener {
 
   companion object {
     private const val TAG = "TranslateViewModel"
@@ -80,9 +81,15 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
     TranslateLanguage.ARABIC
   ).map { Language(it) }
 
+  private var tts: TextToSpeech? = null
+  private var isTtsInitialized = false
+
   init {
     // 1. Copy bundled models from assets to internal storage for offline use
     copyModelsFromAssets()
+
+    // 2. Initialize TextToSpeech
+    tts = TextToSpeech(application, this)
 
     // Create a translation result or error object.
     val processTranslation =
@@ -110,6 +117,23 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
     downloadLanguage(Language(TranslateLanguage.ENGLISH))
     downloadLanguage(Language(TranslateLanguage.HEBREW))
     downloadLanguage(Language(TranslateLanguage.ARABIC))
+  }
+
+  override fun onInit(status: Int) {
+    if (status == TextToSpeech.SUCCESS) {
+      isTtsInitialized = true
+    } else {
+      Log.e(TAG, "TTS Initialization failed")
+    }
+  }
+
+  fun speak(text: String, language: Language) {
+    if (isTtsInitialized) {
+      // Hebrew code can be "he" or "iw" depending on the version
+      val locale = if (language.code == "he") Locale("iw") else Locale(language.code)
+      tts?.language = locale
+      tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    }
   }
 
   private fun copyModelsFromAssets() {
@@ -285,5 +309,7 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
     // ViewModel's onCleared() to clear our LruCache and close each Translator instance when
     // this ViewModel is no longer used and destroyed.
     translators.evictAll()
+    tts?.stop()
+    tts?.shutdown()
   }
 }
